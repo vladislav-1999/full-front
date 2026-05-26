@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/mtteh/lesnoy/user-frontend/api/main/**)",
+      "Read(//d/mtteh/lesnoy/user-frontend/api/main/about/**)",
+      "Read(//d/mtteh/lesnoy/user-frontend/api/main/about/queries/**)",
+      "Read(//d/mtteh/lesnoy/user-frontend/api/main/types/common/**)",
+      "Read(//d/mtteh/lesnoy/user-frontend/api/main/types/helpers/**)",
+      "Read(//d/mtteh/lesnoy/user-frontend/**)",
+      "Read(//d/student/node/**)"
+    ]
+  }
+}
