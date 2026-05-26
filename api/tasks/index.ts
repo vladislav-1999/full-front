@@ -10,3 +10,7 @@ export async function getTasks() {
 export async function deleteTask(id: number) {
 	await mainApi.delete(`/tasks/${id}`)
 }
+
+export async function addTask(title: string) {
+	await mainApi.post(`/tasks`, { title })
+}
