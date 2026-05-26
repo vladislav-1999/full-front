@@ -14,3 +14,7 @@ export async function deleteTask(id: number) {
 export async function addTask(title: string) {
 	await mainApi.post(`/tasks`, { title })
 }
+
+export async function completeTask(id: number) {
+	await mainApi.patch(`/tasks/${id}`, { done: true })
+}
