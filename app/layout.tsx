@@ -10,7 +10,7 @@ const manrope = Manrope({
 })
 
 export const metadata: Metadata = {
-	title: 'ВСМ — Личный кабинет',
+	title: 'ТЕСТ',
 }
 
 export const dynamic = 'force-dynamic'

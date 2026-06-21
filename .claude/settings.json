@@ -7,7 +7,8 @@
       "Read(//d/mtteh/lesnoy/user-frontend/api/main/types/common/**)",
       "Read(//d/mtteh/lesnoy/user-frontend/api/main/types/helpers/**)",
       "Read(//d/mtteh/lesnoy/user-frontend/**)",
-      "Read(//d/student/node/**)"
+      "Read(//d/student/node/**)",
+      "Bash(npx tsc *)"
     ]
   }
 }
