@@ -2,11 +2,62 @@
 
 Документ собирает общие, НЕ привязанные к конкретному проекту соглашения: стек, структуру, паттерны компонентов, работу с темой и AI-тулинг. Применяется ко всем фронтенд-проектам команды, которые ведутся в едином код-стайле.
 
+## Режим работы ассистента (этот проект)
+
+**Вёрстку (JSX/разметку, layout, стили компонентов) ассистент сам НЕ трогает и НЕ редактирует.** Пользователь пишет вёрстку руками. Ассистент даёт готовый код блоком и объясняет, что тот делает, — а пользователь вставляет его сам.
+
+Это относится в первую очередь к разметке и стилям. Логику/типы/API-слой по-прежнему можно показывать кодом так же — готовыми блоками для ручной вставки.
+
 ## Бэкенд проекта
 
-Учебный бэкенд лежит локально в `d:\student\node\` — простой Node.js HTTP-сервер (без фреймворков) на порту `3001`. Точка входа — `server.js`. Запуск: `node server.js`. CORS уже настроен на `http://localhost:3000`.
+Учебный бэкенд лежит локально в `d:\student\node\`. Это **Express 5 + TypeScript + Drizzle ORM + PostgreSQL**, слоистая архитектура (routes → controllers → services → repositories → db). Аутентификация — JWT (Bearer), хэш паролей — argon2, валидация — zod v4.
 
-При проблемах с запросами фронта (404, неожиданный формат ответа) — смотреть напрямую в `d:\student\node\server.js`, там описаны все роуты.
+- **База URL:** `http://localhost:3001`
+- **Запуск:** `npm run dev` (tsx watch). БД поднимается через `docker-compose up -d` (Postgres 16, порт `5433`).
+- **CORS:** разрешён только `http://localhost:3000`.
+- **Точка входа:** `server.ts` → `src/app.ts`. Роуты — в `src/routes/`, форматы запросов/ответов — в zod-схемах `src/schemas/`.
+- **Swagger/OpenAPI:** интерактивная дока на `http://localhost:3001/docs`.
+
+При проблемах с запросами (404, формат ответа) — смотреть `src/routes/*.ts` и `src/schemas/*.ts`.
+
+### Аутентификация
+
+Все роуты `/tasks/*` защищены middleware `requireAuth` — требуют заголовок `Authorization: Bearer <token>`. Токен получается на `/auth/login`, живёт **15 минут** (`expiresIn: '15m'`), payload: `{ sub: userId, role }`. Без/с битым токеном → `401 { error }`.
+
+Роуты `/auth/*` — публичные.
+
+### Эндпоинты
+
+**Auth (`/auth`)**
+
+| Метод | Путь | Тело запроса | Успех | Ошибки |
+| --- | --- | --- | --- | --- |
+| POST | `/auth/register` | `{ email: string, password: string (8..128) }` | `201` → `PublicUser` | `409 { error }` — email занят |
+| POST | `/auth/login` | `{ email: string, password: string }` | `200` → `{ token: string }` | `401 { error }` — неверные креды |
+
+`PublicUser` = `{ id: number, email: string, role: string, createdAt: string }` (без passwordHash). Email приводится к нижнему регистру.
+
+**Tasks (`/tasks`, все требуют Bearer-токен)**
+
+| Метод | Путь | Тело запроса | Успех | Ошибки |
+| --- | --- | --- | --- | --- |
+| GET | `/tasks` | — | `200` → `Task[]` | — |
+| GET | `/tasks/:id` | — | `200` → `Task` | `404 { error }` |
+| POST | `/tasks` | `{ title: string (1..200) }` | `201` → `Task` | — |
+| PATCH | `/tasks/:id` | `{ done?: boolean }` | `200` → `Task` | `404 { error }` |
+| DELETE | `/tasks/:id` | — | `204` (пустое тело) | `404 { error }` |
+
+`Task` = `{ id: number, title: string, done: boolean }`. Задачи изолированы по `userId` — каждый юзер видит только свои (бэк фильтрует по токену, `userId` в ответе не отдаётся).
+
+### Форматы ошибок (единые)
+
+- **Ошибка валидации (zod)** → `400 { error: 'Validation failed', issues: [{ path: string, message: string }] }`
+- **Не найдено** → `404 { error: string }`
+- **Конфликт** (email занят) → `409 { error: string }`
+- **Не авторизован** → `401 { error: string }`
+- **Внутренняя** → `500 { error: 'Internal server error' }`
+
+Фронтовые API-типы (`api/types/helpers/MainApiError.ts`, `ResponseData.ts`) должны соответствовать этим форматам.
 
 ## Обязательные правила код-стайла (чек-лист)
 
