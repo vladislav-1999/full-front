@@ -1,5 +1,5 @@
 import { mainApi } from '@/api'
-import type { LoginInput, LoginResponseData, PublicUser, RegisterInput } from './types'
+import type { LoginInput, PublicUser, RegisterInput, TokenPair } from './types'
 
 export async function register(input: RegisterInput) {
 	const { data } = await mainApi.post<PublicUser>('/auth/register', input)
@@ -7,6 +7,10 @@ export async function register(input: RegisterInput) {
 }
 
 export async function login(input: LoginInput) {
-	const { data } = await mainApi.post<LoginResponseData>('/auth/login', input)
+	const { data } = await mainApi.post<TokenPair>('/auth/login', input)
 	return data
+}
+
+export async function logout(refreshToken: string) {
+	await mainApi.post('/auth/logout', { refreshToken })
 }
