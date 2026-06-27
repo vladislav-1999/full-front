@@ -7,6 +7,7 @@
 		"build": "next build",
 		"start": "next start",
 		"lint": "eslint",
+		"typecheck": "tsc --noEmit",
 		"gen:api": "openapi-typescript http://localhost:3001/openapi.json -o src/types/api.d.ts"
 	},
 	"dependencies": {
@@ -32,6 +33,7 @@
 		"babel-plugin-react-compiler": "1.0.0",
 		"eslint": "^10.4.0",
 		"eslint-config-next": "16.2.6",
+		"openapi-typescript": "^7.13.0",
 		"prettier": "^3.8.3",
 		"typescript": "^6.0.3"
 	}

@@ -22,7 +22,12 @@
 
 ### Аутентификация
 
-Все роуты `/tasks/*` защищены middleware `requireAuth` — требуют заголовок `Authorization: Bearer <token>`. Токен получается на `/auth/login`, живёт **15 минут** (`expiresIn: '15m'`), payload: `{ sub: userId, role }`. Без/с битым токеном → `401 { error }`.
+Все роуты `/tasks/*` защищены middleware `requireAuth` — требуют заголовок `Authorization: Bearer <accessToken>`. На входе бэк выдаёт **пару токенов** `TokenPair = { accessToken, refreshToken }`:
+
+- **accessToken** — короткоживущий JWT (**15 минут**, `expiresIn: '15m'`, payload `{ sub: userId, role }`). Шлётся в `Authorization` на каждый защищённый запрос. Без/с битым → `401 { error }`.
+- **refreshToken** — непрозрачная случайная строка (hex), живёт **30 дней**, хранится на сервере в хешированном виде (sha256). Используется только для `/auth/refresh` и `/auth/logout` (передаётся в **теле** запроса, не в заголовке).
+
+Ротация: каждый `/auth/refresh` отзывает старый refreshToken и выдаёт новую пару. Повторное использование уже отозванного токена → бэк отзывает **все** токены юзера (защита от кражи).
 
 Роуты `/auth/*` — публичные.
 
@@ -33,9 +38,11 @@
 | Метод | Путь | Тело запроса | Успех | Ошибки |
 | --- | --- | --- | --- | --- |
 | POST | `/auth/register` | `{ email: string, password: string (8..128) }` | `201` → `PublicUser` | `409 { error }` — email занят |
-| POST | `/auth/login` | `{ email: string, password: string }` | `200` → `{ token: string }` | `401 { error }` — неверные креды |
+| POST | `/auth/login` | `{ email: string, password: string }` | `200` → `TokenPair` | `401 { error }` — неверные креды |
+| POST | `/auth/refresh` | `{ refreshToken: string }` | `200` → `TokenPair` (новая пара) | `401 { error }` — refresh невалиден/протух |
+| POST | `/auth/logout` | `{ refreshToken: string }` | `204` (пустое тело) | `400` — ошибка валидации |
 
-`PublicUser` = `{ id: number, email: string, role: string, createdAt: string }` (без passwordHash). Email приводится к нижнему регистру.
+`TokenPair` = `{ accessToken: string, refreshToken: string }`. `PublicUser` = `{ id: number, email: string, role: string, createdAt: string }` (без passwordHash). Email приводится к нижнему регистру. Регистрация токены НЕ возвращает — после неё нужен отдельный `/auth/login`.
 
 **Tasks (`/tasks`, все требуют Bearer-токен)**
 
@@ -58,6 +65,18 @@
 - **Внутренняя** → `500 { error: 'Internal server error' }`
 
 Фронтовые API-типы (`api/types/helpers/MainApiError.ts`, `ResponseData.ts`) должны соответствовать этим форматам.
+
+## Аутентификация (фронт)
+
+- **Типы auth** — из автоген-схемы сваггера (`@/src/types/api`, генерится `npm run gen:api`): `TokenPair`, `RegisterInput`, `LoginInput`, `PublicUser`, `RefreshInput`. Реэкспортятся алиасами в `api/auth/types.ts`. API-типы не утекают в компоненты (правило 4).
+- **Хранение токенов** — cookie через `js-cookie`, обёртка `tokenStorage` в `api/auth/token.ts`: `accessToken` (срок ~15 мин) + `refreshToken` (30 дней). Методы: `getAccess()`, `getRefresh()`, `set(TokenPair)`, `clear()`.
+- **axios (`api/index.ts`, инстанс `mainApi`):**
+  - request-интерсептор цепляет `Authorization: Bearer <accessToken>`;
+  - response-интерсептор нормализует любую ошибку бэка в `MainApiError` (`{ message, status }`);
+  - **авто-refresh на `401`**: single-flight `/auth/refresh` (голым `axios`, мимо интерсепторов — иначе рекурсия), сохраняет новую пару, повторяет исходный запрос ровно один раз (флаг `_retry` на конфиге). Роуты `/auth/*` исключены. Если refresh не удался — `tokenStorage.clear()` + `window.location.href = '/login'`.
+- **Мутации (`api/auth/mutations`):** `useLogin` (сохраняет пару + `setQueryData(authStatusKey, true)`), `useRegister` (токены не возвращает — после неё отдельный логин), `useLogout` (отзывает refresh на сервере + локальный `clear()` в `onSettled`, чтобы выйти даже при сетевой ошибке).
+- **Состояние авторизации для UI** — хук `useIsAuthenticated` (`api/auth/queries`): TanStack Query по ключу `authStatusKey`. Гейтить кнопки/доступ по наличию **refreshToken** (не access — он короткоживущий и моргал бы каждые 15 мин). Login/logout обновляют состояние через `queryClient.setQueryData(authStatusKey, …)`.
+- **TODO (не сделано):** серверный guard через `middleware.ts` — редирект неавторизованных и устранение моргания кнопок на первом кадре (cookie сейчас читается только на клиенте).
 
 ## Обязательные правила код-стайла (чек-лист)
 
